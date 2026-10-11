@@ -324,4 +324,5 @@
   <string name="settings_app_lock_no_credential">Wajib menggunakan kunci layar yang aman.</string>
   <string name="enable_risk">Aktifkan deteksi risiko</string>
   <string name="enable_risk_summary">Aktifkan deteksi risiko saat memasang modul.</string>
+  <string name="feature_status_forced_summary">This feature is forced by boot config</string>
 </resources>
