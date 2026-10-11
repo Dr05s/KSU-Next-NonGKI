@@ -127,7 +127,7 @@ fun getBugreportFileUnrooted(context: Context): File {
     sh("toybox ps -T -A -w -o PID,TID,UID,COMM,CMDLINE,CMD,LABEL,STAT,WCHAN > ${processFile.absolutePath}")
     sh("logcat -b all -v uid -d > ${logcatFile.absolutePath}")
     sh("getprop > ${propFile.absolutePath}")
-    sh("cat /proc/mountinfo > ${mountinfo.absolutePath}")
+    sh("cat /proc/self/mountinfo > ${mountinfo.absolutePath}")
 
     val buildInfo = File(bugreportDir, "basic.txt")
     PrintWriter(FileWriter(buildInfo)).use { pw ->
