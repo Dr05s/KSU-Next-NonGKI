@@ -324,4 +324,5 @@
   <string name="settings_app_lock_no_credential">Bloqueio de tela seguro necessário.</string>
   <string name="enable_risk">Ativar detecção de riscos</string>
   <string name="enable_risk_summary">Ativar a detecção de risco no momento da instalação para os módulos.</string>
+  <string name="feature_status_forced_summary">This feature is forced by boot config</string>
 </resources>
