@@ -325,4 +325,5 @@
   <string name="settings_app_lock_no_credential">Secure screen lock required.</string>
   <string name="enable_risk">Enable risk detection</string>
   <string name="enable_risk_summary">Enable install-time risk detection for modules.</string>
+  <string name="feature_status_forced_summary">This feature is forced by boot config</string>
 </resources>
