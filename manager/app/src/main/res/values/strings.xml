@@ -329,7 +329,8 @@ from any shizuku-enabled terminal:
 2.`logcat -b all > /sdcard/Download/logcat_adb.txt` then Cntrl+C to stop logging, or use -d
 3.`pm list packages | grep -i -E 'magisk|ksu|kernelsu'`
 4.`cat /proc/modules`
-5.embed them in the bug report or send them along with the actual bugreport"</string>
+5. dmesg > /sdcard/Download/dmesg_adb.txt if applicable (custom ROM with adb root, otherwise skip)
+6.embed them in the bug report or send them along with the actual bugreport"</string>
     <string name="unrooted_additional_bugreport_got_it">Got it</string>
     <string name="enable_risk">Enable risk detection</string>
     <string name="enable_risk_summary">Enable install-time risk detection for modules.</string>
