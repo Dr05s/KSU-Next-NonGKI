@@ -325,8 +325,8 @@
     <string name="unrooted_additional_bugreport_title">Additional Bugreport context</string>
     <string name="unrooted_additional_bugreport_body">"if you have Shizuku you can try running the following
 from any shizuku-enabled terminal:
-1.`ps -A -Z` and paste the output in a new file (process.txt)
-2.`logcat -b all >> logcat.txt` (do not overwrite the current logcat)
+1.`ps -A -Z > /sdcard/Download/process_adb.txt`
+2.`logcat -b all > /sdcard/Download/logcat_adb.txt` then Cntrl+C to stop logging, or use -d
 3.`pm list packages | grep -i -E 'magisk|ksu|kernelsu'`
 4.`cat /proc/modules`
 5.embed them in the bug report or send them along with the actual bugreport"</string>
