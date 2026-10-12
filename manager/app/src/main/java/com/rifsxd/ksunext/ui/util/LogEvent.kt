@@ -124,10 +124,10 @@ fun getBugreportFileUnrooted(context: Context): File {
     val propFile = File(bugreportDir, "props.txt")
     val mountinfo = File(bugreportDir, "mountinfo.txt")
 
-    sh("toybox ps -T -A -w -o PID,TID,UID,COMM,CMDLINE,CMD,LABEL,STAT,WCHAN > ${processFile.absolutePath}")
-    sh("logcat -b all -v uid -d > ${logcatFile.absolutePath}")
-    sh("getprop > ${propFile.absolutePath}")
-    sh("cat /proc/self/mountinfo > ${mountinfo.absolutePath}")
+    nonRootShell("toybox ps -T -A -w -o PID,TID,UID,COMM,CMDLINE,CMD,LABEL,STAT,WCHAN > ${processFile.absolutePath}")
+    nonRootShell("logcat -b all -v uid -d > ${logcatFile.absolutePath}")
+    nonRootShell("getprop > ${propFile.absolutePath}")
+    nonRootShell("cat /proc/self/mountinfo > ${mountinfo.absolutePath}")
 
     val buildInfo = File(bugreportDir, "basic.txt")
     PrintWriter(FileWriter(buildInfo)).use { pw ->
@@ -156,14 +156,14 @@ fun getBugreportFileUnrooted(context: Context): File {
 
     val targetFile = File(context.cacheDir, "KernelSU_Next_bugreport_${current}.tar.gz")
 
-    sh("tar czf ${targetFile.absolutePath} -C ${bugreportDir.absolutePath} .")
-    sh("rm -rf ${bugreportDir.absolutePath}")
-    sh("chmod 0644 ${targetFile.absolutePath}")
+    nonRootShell("tar czf ${targetFile.absolutePath} -C ${bugreportDir.absolutePath} .")
+    nonRootShell("rm -rf ${bugreportDir.absolutePath}")
+    nonRootShell("chmod 0644 ${targetFile.absolutePath}")
 
     return targetFile
 }
 
-fun sh(command: String): Boolean {
+fun nonRootShell(command: String): Boolean {
     val process = ProcessBuilder("sh", "-c", command)
         .redirectErrorStream(true)
         .start()
