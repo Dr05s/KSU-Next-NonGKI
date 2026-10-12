@@ -5,6 +5,7 @@ import android.os.Build
 import android.system.Os
 import com.rifsxd.ksunext.Natives
 import com.rifsxd.ksunext.ui.screen.getManagerVersion
+import com.rifsxd.ksunext.ui.util.nonRootShell
 import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.ShellUtils
 import java.io.File
@@ -161,12 +162,4 @@ fun getBugreportFileUnrooted(context: Context): File {
     nonRootShell("chmod 0644 ${targetFile.absolutePath}")
 
     return targetFile
-}
-
-fun nonRootShell(command: String): Boolean {
-    val process = ProcessBuilder("sh", "-c", command)
-        .redirectErrorStream(true)
-        .start()
-    process.inputStream.bufferedReader().readText()
-    return process.waitFor() == 0
 }
