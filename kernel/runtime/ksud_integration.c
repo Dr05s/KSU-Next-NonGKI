@@ -238,11 +238,22 @@ static int __maybe_unused count(struct user_arg_ptr argv, int max)
 
 static void on_post_fs_data_cbfun(struct callback_head *cb)
 {
+	/*
+	 * Each queueing allocates its own head. A single shared static head
+	 * cannot be used here: task_work_add() writes work->next = head
+	 * through the caller's node, so two racing insertions make the node
+	 * point at itself. task_work_run()'s inner loop is
+	 *   do { next = work->next; work->func(work); work = next;
+	 *        cond_resched(); } while (work);
+	 * which then never terminates - and it is re-entered from
+	 * exit_to_user_mode() on every single return to userspace, so PID 1
+	 * would spin for the rest of the boot and Android would never finish
+	 * coming up. Both zygotes exec concurrently from StartZygote() and
+	 * both match, so this window is taken on every boot.
+	 */
+	kfree(cb);
 	on_post_fs_data();
 }
-
-static struct callback_head on_post_fs_data_cb = { .func =
-							on_post_fs_data_cbfun };
 
 static bool check_argv(struct user_arg_ptr argv, int index,
 		       const char *expected, char *buf, size_t buf_len)
@@ -287,7 +298,12 @@ int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
 	struct filename *filename;
 
 	static const char app_process[] = "/system/bin/app_process";
-	static bool first_zygote = true;
+	/*
+	 * Plain bool: both zygotes read it as true, both queue work. Needs to
+	 * be a test-and-set, see the use site below.
+	 */
+	static atomic_t first_zygote_flag = ATOMIC_INIT(1);
+#define first_zygote (atomic_read(&first_zygote_flag) != 0)
 
 	/* This applies to versions Android 10+ */
 	static const char system_bin_init[] = "/system/bin/init";
@@ -375,15 +391,36 @@ int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
 			     sizeof(app_process) - 1) && argv)) {
 		char buf[16];
 		if (check_argv(*argv, 1, "-Xzygote", buf, sizeof(buf))) {
+			struct callback_head *cb;
+
+			/*
+			 * Claim the one-shot before doing anything that can
+			 * sleep or fault: zygote64 and zygote exec at the same
+			 * time on different CPUs and both pass the checks
+			 * above, so a plain "first_zygote = false" after the
+			 * fact lets the loser queue a second head as well.
+			 */
+			if (atomic_cmpxchg(&first_zygote_flag, 1, 0) != 1)
+				return 0;
+
 			pr_info("exec zygote, /data prepared, second_stage: %d\n",
 				init_second_stage_executed);
+
+			cb = kzalloc(sizeof(*cb), GFP_ATOMIC);
+			if (!cb) {
+				pr_warn("on_post_fs_data: alloc failed\n");
+				return 0;
+			}
+			cb->func = on_post_fs_data_cbfun;
+
 			rcu_read_lock();
 			struct task_struct *init_task =
 				rcu_dereference(current->real_parent);
 			if (init_task)
-				task_work_add(init_task, &on_post_fs_data_cb, TWA_RESUME);
+				task_work_add(init_task, cb, TWA_RESUME);
 			rcu_read_unlock();
-			first_zygote = false;
+
+			/* Only stop the hook once we are sure we queued. */
 			stop_execve_hook();
 		}
 	}

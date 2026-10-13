@@ -48,17 +48,31 @@ static void ksu_defer_track_throne(void)
 {
 	struct callback_head *cb;
 
-	if (!(current->flags & PF_KTHREAD)) {
-		cb = kzalloc(sizeof(*cb), GFP_KERNEL);
-		if (cb) {
-			cb->func = ksu_track_throne_tw_func;
-			if (!task_work_add(current, cb, TWA_RESUME))
-				return;
-			kfree(cb);
-		}
+	/*
+	 * There is no safe inline fallback here. track_thorne() walks
+	 * /data/system/packages.list, which on a dcache miss ends up in
+	 * lookup_slow() -> inode_lock() -> down_write() on the very i_rwsem
+	 * fsnotify still holds in write mode: the caller blocks on its own
+	 * lock while holding throne_tracker_mutex, and installd/system_server
+	 * pile up behind it. A kthread cannot get a task_work either, and
+	 * task_work_add() legitimately fails with -ESRCH once the task is
+	 * exiting. Dropping the event is always safe - the next create/install
+	 * republishes packages.list and we rescan then.
+	 */
+	if (current->flags & PF_KTHREAD)
+		return;
+
+	cb = kzalloc(sizeof(*cb), GFP_KERNEL);
+	if (!cb) {
+		pr_warn("defer track_throne: alloc failed, skipping event\n");
+		return;
 	}
-	pr_warn("defer track_throne failed, run it inline\n");
-	track_throne(false);
+
+	cb->func = ksu_track_throne_tw_func;
+	if (task_work_add(current, cb, TWA_RESUME)) {
+		kfree(cb);
+		pr_warn("defer track_throne: task_work_add failed, skipping event\n");
+	}
 }
 
 #include "pkg_observer_defs.h" // KSU_DECL_FSNOTIFY_OPS

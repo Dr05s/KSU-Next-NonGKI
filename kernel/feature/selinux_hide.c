@@ -227,39 +227,6 @@ static bool ksu_is_dirty_access_query(const char *scon, const char *tcon)
     return false;
 }
 
-static void ksu_fix_access_response(void *private_data, bool deny)
-{
-    struct simple_transaction_argresp *ar = private_data;
-    unsigned int allowed, ff, auditallow, auditdeny, flags, seqno;
-    char buf[64];
-    int len;
-
-    if (!ar)
-        return;
-
-    if (sscanf(ar->data, "%x %x %x %x %u %x",
-               &allowed, &ff, &auditallow, &auditdeny, &seqno, &flags) != 6)
-        return;
-
-    if (deny) {
-        allowed    = 0;
-        auditallow = 0;
-        auditdeny  = 0xffffffff;
-        flags      = 0;
-    }
-
-    seqno = 1;
-
-    len = scnprintf(buf, sizeof(buf), "%x %x %x %x %u %x",
-                    allowed, 0xffffffff, auditallow, auditdeny, seqno, flags);
-
-    if (len > 0 && len < (int)SIMPLE_TRANSACTION_LIMIT) {
-        memcpy(ar->data, buf, len);
-        ar->data[len] = '\0';
-        ar->size = len;
-    }
-}
-
 static int ksu_patch_fops_slot(void **slot, void *new_fn)
 {
     unsigned long addr   = (unsigned long)slot;
@@ -326,26 +293,36 @@ static __nocfi ssize_t ksu_sel_write(struct file *file, const char __user *ubuf,
         goto passthrough;
     }
 
-    ret = orig_sel_write(file, ubuf, size, pos);
-    if (ret <= 0)
-        return ret;
-
     {
-        bool deny = false;
         char scon[128], tcon[128];
         unsigned int tclass_num;
 
+        /*
+         * Do this before the real avc runs, not after.
+         *
+         * A hidden context is *present* in the policy, so letting
+         * security_compute_av_user() answer and rewriting the transaction
+         * afterwards hands every unprivileged app a perfect detection
+         * oracle: a well-formed six-field reply for "u:r:su:s0", but
+         * -EINVAL for a name that is not in the policy at all. Walking
+         * the handful of well-known KSU/Magisk type names is all it takes,
+         * no root needed.
+         *
+         * security_context_str_to_sid() already fails with -EINVAL for a
+         * context the policy does not contain, so returning exactly that
+         * for a hidden one makes the two indistinguishable - and restores
+         * the pre-refactor behaviour, where the access node was not hooked
+         * and the real avc never ran.
+         */
         if (ksu_should_hide_context(kbuf))
-            deny = true;
+            return -EINVAL;
 
         if (sscanf(kbuf, "%127s %127s %u", scon, tcon, &tclass_num) == 3 &&
             ksu_is_dirty_access_query(scon, tcon))
-            deny = true;
-
-        ksu_fix_access_response(file->private_data, deny);
+            return -EINVAL;
     }
 
-    return ret;
+    return orig_sel_write(file, ubuf, size, pos);
 
 passthrough:
     return orig_sel_write(file, ubuf, size, pos);
@@ -395,11 +372,17 @@ static void ksu_hook_proc_attr_write(void)
     if (!fops || !fops->write)
         return;
 
-    g_proc_attr_fops = fops;
-    orig_proc_pid_attr_write = fops->write;
+    ssize_t (*orig)(struct file *, const char __user *, size_t, loff_t *) =
+        fops->write;
+
     ret = ksu_patch_fops_slot((void **)&fops->write, ksu_proc_pid_attr_write);
-    if (ret)
+    if (ret) {
         pr_warn("selinux_hide: proc_attr hook failed: %d\n", ret);
+        return;
+    }
+
+    g_proc_attr_fops = fops;
+    orig_proc_pid_attr_write = orig;
 }
 
 static void ksu_hook_transaction_write(void)
@@ -414,11 +397,24 @@ static void ksu_hook_transaction_write(void)
     if (!fops || !fops->write)
         return;
 
-    g_sel_context_fops = fops;
-    orig_sel_write = fops->write;
+    /*
+     * Read the slot before we publish anything. Re-reading it after the
+     * store to orig_* would capture our own hook on a losing racer, and
+     * that value is what the unhook path writes back - the slot would then
+     * point at ksu_sel_write forever and every setcon() would recurse
+     * until the stack runs out.
+     */
+    ssize_t (*orig)(struct file *, const char __user *, size_t, loff_t *) =
+        fops->write;
+
     ret = ksu_patch_fops_slot((void **)&fops->write, ksu_sel_write);
-    if (ret)
+    if (ret) {
         pr_warn("selinux_hide: patch write failed: %d\n", ret);
+        return;
+    }
+
+    g_sel_context_fops = fops;
+    orig_sel_write = orig;
 }
 
 static struct page *ksu_fake_status_page __read_mostly = NULL;
@@ -492,11 +488,16 @@ static void ksu_hook_status_open(void)
     if (!fops || !fops->open)
         return;
 
-    g_status_fops = fops;
-    orig_status_open = fops->open;
+    int (*orig)(struct inode *, struct file *) = fops->open;
+
     ret = ksu_patch_fops_slot((void **)&fops->open, ksu_status_open);
-    if (ret)
+    if (ret) {
         pr_warn("selinux_hide: patch status open failed: %d\n", ret);
+        return;
+    }
+
+    g_status_fops = fops;
+    orig_status_open = orig;
 }
 
 static int selinux_hide_get(u64 *v)
@@ -552,22 +553,35 @@ skip_status:
     return 0;
 }
 
+static DEFINE_MUTEX(ksu_hook_mutex);
+
 void ksu_selinux_hide_handle_second_stage(void)
 {
+    /*
+     * All three ksu_hook_*() are "test orig_*, then resolve, then store"
+     * sequences. They are reachable from the boot kthread *and* from task
+     * work on the init/zygote side at the same time, and without this
+     * lock two racers both resolve, both store, and the second one stores
+     * our own hook as the "original".
+     */
+    mutex_lock(&ksu_hook_mutex);
     if (!READ_ONCE(ksu_fake_status_page))
         ksu_prepare_fake_status_page();
     ksu_hook_status_open();
     ksu_hook_transaction_write();
     ksu_hook_proc_attr_write();
+    mutex_unlock(&ksu_hook_mutex);
 }
 
 void ksu_selinux_hide_handle_post_fs_data(void)
 {
+    mutex_lock(&ksu_hook_mutex);
     if (!READ_ONCE(ksu_fake_status_page))
         ksu_prepare_fake_status_page();
     ksu_hook_status_open();
     ksu_hook_transaction_write();
     ksu_hook_proc_attr_write();
+    mutex_unlock(&ksu_hook_mutex);
 }
 
 void __init ksu_selinux_hide_init(void)
@@ -587,12 +601,25 @@ void __exit ksu_selinux_hide_exit(void)
     ksu_rcu_replace(&ksu_hide_rule_list, NULL);
     mutex_unlock(&ksu_hide_list_mutex);
 
+    /*
+     * Take the same lock the installers hold, then clear every orig_*
+     * after restoring it. Leaving them set makes the hooks permanently
+     * un-rearmable (every ksu_hook_*() early-returns on a non-NULL
+     * orig_*) and leaves g_*_fops dangling at a fops we no longer own.
+     */
+    mutex_lock(&ksu_hook_mutex);
     if (g_sel_context_fops && orig_sel_write)
         ksu_patch_fops_slot((void **)&g_sel_context_fops->write, orig_sel_write);
     if (g_status_fops && orig_status_open)
         ksu_patch_fops_slot((void **)&g_status_fops->open, orig_status_open);
-    if (g_proc_attr_fops && orig_proc_pid_attr_write) {
+    if (g_proc_attr_fops && orig_proc_pid_attr_write)
         ksu_patch_fops_slot((void **)&g_proc_attr_fops->write, orig_proc_pid_attr_write);
-        orig_proc_pid_attr_write = NULL;
-    }
+
+    orig_sel_write = NULL;
+    orig_status_open = NULL;
+    orig_proc_pid_attr_write = NULL;
+    g_sel_context_fops = NULL;
+    g_status_fops = NULL;
+    g_proc_attr_fops = NULL;
+    mutex_unlock(&ksu_hook_mutex);
 }
