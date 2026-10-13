@@ -371,4 +371,9 @@
   <string name="module_unknown">Módulo desconhecido</string>
   <string name="template_example_title">Exemplo</string>
   <string name="template_example_description">Este é um exemplo de template</string>
+  <string name="susfs_builtin_loaded">O SUSFS está integrado ao kernel</string>
+  <string name="susfs_unload_button">Descarregar</string>
+  <string name="susfs_unload_in_progress">Descarregando SUSFS LKM</string>
+  <string name="susfs_unload_success">SUSFS LKM descarregado</string>
+  <string name="susfs_unload_failed">Falha ao descarregar SUSFS LKM</string>
 </resources>
