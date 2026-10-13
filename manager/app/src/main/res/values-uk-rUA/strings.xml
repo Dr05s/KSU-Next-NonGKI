@@ -373,4 +373,9 @@
   <string name="module_unknown">Unknown Module</string>
   <string name="template_example_title">Example</string>
   <string name="template_example_description">This is an example template</string>
+  <string name="susfs_builtin_loaded">SUSFS is built into the kernel</string>
+  <string name="susfs_unload_button">Unload</string>
+  <string name="susfs_unload_in_progress">Unloading SUSFS LKM</string>
+  <string name="susfs_unload_success">SUSFS LKM unloaded</string>
+  <string name="susfs_unload_failed">Failed to unload SUSFS LKM</string>
 </resources>
