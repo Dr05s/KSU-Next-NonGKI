@@ -24,8 +24,17 @@
 #define __nocfi
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0) && \
-    LINUX_VERSION_CODE <  KERNEL_VERSION(6, 6, 0)
+/*
+ * Gate on the tree feature probe the rest of this driver already uses
+ * (kernel/Kbuild greps security/selinux/include/security.h for
+ * "struct selinux_state "), not on a version range. The range
+ * >= 4.17 && < 6.6 missed every tree that carries Android's selinux_ss
+ * backport: there the symbol exists but the version is 4.14, so this file
+ * fell through to the zero-argument call and did not compile at all -
+ * selinux_kernel_status_page() takes a struct selinux_state * in every
+ * kernel that has it.
+ */
+#ifdef KSU_COMPAT_USE_SELINUX_STATE
 extern struct selinux_state selinux_state;
 #define KSU_HAS_SELINUX_STATE 1
 #else
