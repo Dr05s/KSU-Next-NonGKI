@@ -634,12 +634,34 @@ fun UpdateCard() {
     }
 }
 
+/** Reboots on selection, but confirms first in jailbreak mode where a plain reboot drops root. */
 @Composable
-fun RebootDropdownItem(@StringRes id: Int, reason: String = "") {
+fun rememberRebootAction(): (String) -> Unit {
+    val title = stringResource(R.string.reboot)
+    val message = stringResource(R.string.jailbreak_reboot_warning)
+    val confirmDialog = rememberConfirmDialog(onConfirm = { reboot() })
+
+    return remember(title, message, confirmDialog) {
+        { reason ->
+            if (Natives.isLateLoadMode && reason.isEmpty()) {
+                confirmDialog.showConfirm(title = title, content = message)
+            } else {
+                reboot(reason)
+            }
+        }
+    }
+}
+
+@Composable
+fun RebootDropdownItem(
+    @StringRes id: Int,
+    reason: String = "",
+    onReboot: (String) -> Unit
+) {
     DropdownMenuItem(text = {
         Text(stringResource(id))
     }, onClick = {
-        reboot(reason)
+        onReboot(reason)
     })
 }
 
@@ -748,19 +770,20 @@ private fun TopBar(
                     DropdownMenu(expanded = showDropdown, onDismissRequest = {
                         showDropdown = false
                     }) {
-                        RebootDropdownItem(id = R.string.reboot)
-                        RebootDropdownItem(id = R.string.reboot_userspace, reason = "soft-reboot")
+                        val onReboot = rememberRebootAction()
+                        RebootDropdownItem(id = R.string.reboot, onReboot = onReboot)
+                        RebootDropdownItem(id = R.string.reboot_userspace, reason = "soft-reboot", onReboot = onReboot)
 
                         val pm =
                             LocalContext.current.getSystemService(Context.POWER_SERVICE) as PowerManager?
                         @Suppress("DEPRECATION")
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && pm?.isRebootingUserspaceSupported == true) {
-                            RebootDropdownItem(id = R.string.reboot_userspace, reason = "userspace")
+                            RebootDropdownItem(id = R.string.reboot_userspace, reason = "userspace", onReboot = onReboot)
                         }
-                        RebootDropdownItem(id = R.string.reboot_recovery, reason = "recovery")
-                        RebootDropdownItem(id = R.string.reboot_bootloader, reason = "bootloader")
-                        RebootDropdownItem(id = R.string.reboot_download, reason = "download")
-                        RebootDropdownItem(id = R.string.reboot_edl, reason = "edl")
+                        RebootDropdownItem(id = R.string.reboot_recovery, reason = "recovery", onReboot = onReboot)
+                        RebootDropdownItem(id = R.string.reboot_bootloader, reason = "bootloader", onReboot = onReboot)
+                        RebootDropdownItem(id = R.string.reboot_download, reason = "download", onReboot = onReboot)
+                        RebootDropdownItem(id = R.string.reboot_edl, reason = "edl", onReboot = onReboot)
                     }
                 }
             }

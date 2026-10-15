@@ -466,6 +466,16 @@ fun installBoot(
     return FlashResult(result, bootUri == null && result.isSuccess)
 }
 
+/**
+ * Prefer a soft reboot when module changes need to be applied.
+ * Always true in jailbreak (late-load) mode, where a full reboot would drop root;
+ * otherwise it follows the "soft reboot after module flash" developer option.
+ */
+fun isSoftRebootPreferred(): Boolean =
+    Natives.isLateLoadMode ||
+        ksuApp.getSharedPreferences("settings", Context.MODE_PRIVATE)
+            .getBoolean("soft_reboot_after_module_flash", false)
+
 fun reboot(reason: String = "") {
     if (reason == "soft-reboot") {
         // ksud (userspace)

@@ -530,6 +530,7 @@ private fun ModuleList(
     val successUninstall = stringResource(R.string.module_uninstall_success)
     val successRestore = stringResource(R.string.module_restore_success)
     val reboot = stringResource(R.string.reboot)
+    val softRebootStr = stringResource(R.string.reboot_userspace)
     val rebootToApply = stringResource(R.string.reboot_to_apply)
     val moduleStr = stringResource(R.string.module)
     val uninstall = stringResource(R.string.uninstall)
@@ -642,8 +643,10 @@ private fun ModuleList(
         } else {
             failedUninstall.format(module.name)
         }
+        // A full reboot drops the jailbreak, a soft reboot still applies module changes
+        val softReboot = isSoftRebootPreferred()
         val actionLabel = if (success) {
-            reboot
+            if (softReboot) softRebootStr else reboot
         } else {
             null
         }
@@ -653,7 +656,7 @@ private fun ModuleList(
             duration = SnackbarDuration.Long
         )
         if (result == SnackbarResult.ActionPerformed) {
-            reboot()
+            reboot(if (softReboot) "soft-reboot" else "")
         }
     }
 
@@ -749,13 +752,15 @@ private fun ModuleList(
                                     if (success) {
                                         viewModel.fetchModuleList()
 
+                                        // A full reboot drops the jailbreak, a soft reboot still applies module changes
+                                        val softReboot = isSoftRebootPreferred()
                                         val result = snackBarHost.showSnackbar(
                                             message = rebootToApply,
-                                            actionLabel = reboot,
+                                            actionLabel = if (softReboot) softRebootStr else reboot,
                                             duration = SnackbarDuration.Long
                                         )
                                         if (result == SnackbarResult.ActionPerformed) {
-                                            reboot()
+                                            reboot(if (softReboot) "soft-reboot" else "")
                                         }
                                     } else {
                                         val message =

@@ -98,6 +98,7 @@
     <string name="export_log_unrooted">Export logs (non-root)</string>
     <string name="safe_mode">Safe mode</string>
     <string name="jailbreak_mode">Jailbreak mode</string>
+    <string name="jailbreak_reboot_warning">You are in Jailbreak mode. Rebooting will lose root access, and you will have to jailbreak again after the device starts up. Reboot anyway?</string>
     <string name="reboot_to_apply">Reboot to take effect</string>
     <string name="module_magisk_conflict">Modules are unavailable due to a conflict with Magisk!</string>
     <string name="unavailable">Unavailable</string>
@@ -183,8 +184,8 @@
     <string name="open">Open</string>
     <string name="enable_web_debugging">Enable WebView debugging</string>
     <string name="enable_web_debugging_summary">Can be used to debug WebUI. Please enable only when needed.</string>
-    <string name="soft_reboot_after_module_flash">Soft reboot after module flash</string>
-    <string name="soft_reboot_after_module_flash_summary">Use an emulated soft reboot instead of a full device reboot after flashing modules.</string>
+    <string name="soft_reboot_after_module_flash">Soft reboot after module changes</string>
+    <string name="soft_reboot_after_module_flash_summary">Use an emulated soft reboot instead of a full device reboot after installing, updating, or toggling modules. Always used in jailbreak mode.</string>
     <string name="direct_install">Direct install (Recommended)</string>
     <string name="select_file">Select a file</string>
     <string name="flash_module">Flash Module</string>

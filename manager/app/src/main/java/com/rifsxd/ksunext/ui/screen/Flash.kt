@@ -111,7 +111,9 @@ fun FlashScreen(
 
     val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
     val developerOptionsEnabled = prefs.getBoolean("enable_developer_options", false)
-    val softRebootAfterModuleFlash = prefs.getBoolean("soft_reboot_after_module_flash", false)
+    // A full reboot drops the jailbreak, a soft reboot still applies modules
+    val softReboot = flashIt is FlashIt.FlashModules && isSoftRebootPreferred()
+    val softRebootLabel = if (softReboot) R.string.reboot_userspace else R.string.reboot
 
     val activity = context.findActivity()
 
@@ -248,12 +250,12 @@ fun FlashScreen(
                     onClick = {
                         scope.launch {
                             withContext(Dispatchers.IO) {
-                                reboot(if (softRebootAfterModuleFlash) "soft-reboot" else "")
+                                reboot(if (softReboot) "soft-reboot" else "")
                             }
                         }
                     },
-                    icon = { Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.reboot)) },
-                    text = { Text(text = stringResource(R.string.reboot)) }
+                    icon = { Icon(Icons.Filled.Refresh, contentDescription = stringResource(softRebootLabel)) },
+                    text = { Text(text = stringResource(softRebootLabel)) }
                 )
             }
 
