@@ -82,6 +82,8 @@ pub fn run(package_name: &String, kmi: Option<String>, allow_shell: bool) -> Res
 
     utils::install(None).context("Failed to install ksud")?;
 
+    crate::hot_install::clean_trash();
+
     // 5. Handle module updates
     if let Err(e) = handle_updated_modules() {
         warn!("handle updated modules failed: {e}");

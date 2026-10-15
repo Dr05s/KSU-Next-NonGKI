@@ -27,6 +27,7 @@ import org.json.JSONArray
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.zip.ZipFile
 
 /**
  * @author weishu
@@ -271,10 +272,29 @@ fun flashModule(
         val result = flashWithIO("${getKsuDaemonPath()} $cmd", onStdout, onStderr)
         Log.i("KernelSU", "install module $uri result: $result")
 
+        val showReboot = result.isSuccess && moduleNeedsReboot(file)
         file.delete()
 
-        return FlashResult(result)
+        return FlashResult(result, showReboot)
     }
+}
+
+private val MODULE_ID_REGEX = Regex("^[a-zA-Z][a-zA-Z0-9._-]+$")
+
+// A hot installed module goes live without leaving the "update" flag behind
+private fun moduleNeedsReboot(zip: File): Boolean {
+    val id = runCatching {
+        ZipFile(zip).use { archive ->
+            val entry = archive.getEntry("module.prop") ?: return@use null
+            archive.getInputStream(entry).bufferedReader().useLines { lines ->
+                lines.map { it.trim() }.firstOrNull { it.startsWith("id=") }?.substringAfter('=')?.trim()
+            }
+        }
+    }.getOrNull()
+    if (id == null || !MODULE_ID_REGEX.matches(id)) return true
+    val dir = "/data/adb/modules/$id"
+    // Any failure to check counts as needing a reboot
+    return !ShellUtils.fastCmdResult("[ -d $dir ] && [ ! -e $dir/update ]")
 }
 
 fun runModuleAction(
