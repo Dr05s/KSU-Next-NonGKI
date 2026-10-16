@@ -7,7 +7,7 @@ use log::{LevelFilter, info};
 
 use crate::boot_patch::{BootPatchArgs, BootRestoreArgs};
 use crate::lkm_image::BootPatchV2Args;
-use crate::module::regenerate_preinit_rc;
+use crate::module::regenerate_preinit;
 use crate::{
     apk_sign, assets, debug, defs, init_event, ksu_uapi, ksucalls, module, module_config, sulog,
     susfsd, utils, risk,
@@ -317,6 +317,12 @@ enum Module {
     /// list all modules
     List,
 
+    /// preinit actions run before SELinux policy is loaded
+    Preinit {
+        #[command(subcommand)]
+        command: PreinitCmd,
+    },
+
     /// manage module configuration
     Config {
         /// target internal module name (resolved as internal.<name>)
@@ -331,6 +337,14 @@ enum Module {
         #[command(subcommand)]
         command: RiskCmd,
     },
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum PreinitCmd {
+    /// show per-module preinit state for the next boot
+    Status,
+    /// re-enable preinit after it was disabled by repeated failed boots
+    Reset,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -553,7 +567,7 @@ enum SusfsAutoloadAction {
 
 #[derive(clap::Subcommand, Debug)]
 enum Initrc {
-    /// Regenerate preinit rc file
+    /// Regenerate preinit rc file and preinit dirs
     Refresh,
 }
 
@@ -599,6 +613,13 @@ pub fn run() -> Result<()> {
                 Module::Action { id } => module::run_action(&id),
                 Module::Metamodule => module::is_metamodule_installed(),
                 Module::List => module::list_modules(),
+                Module::Preinit { command } => match command {
+                    PreinitCmd::Status => {
+                        crate::preinit::print_status();
+                        Ok(())
+                    }
+                    PreinitCmd::Reset => crate::preinit::reset_bootcount(),
+                },
                 Module::Risk { command } => match command {
                     RiskCmd::Enable => risk::set_risk_detection_enabled(true),
                     RiskCmd::Disable => risk::set_risk_detection_enabled(false),
@@ -879,7 +900,7 @@ pub fn run() -> Result<()> {
             }
         },
         Commands::Initrc { command } => match command {
-            Initrc::Refresh => regenerate_preinit_rc(),
+            Initrc::Refresh => regenerate_preinit(),
         },
     };
 
