@@ -1125,8 +1125,13 @@ fun UninstallItem(
         }
     }
     val uninstall = stringResource(id = R.string.settings_uninstall)
+    // Jailbreak mode runs on a locked bootloader, so removing KernelSU from here can
+    // leave the device in a state it cannot boot back from.
+    val canUninstall = !Natives.isLateLoadMode
     ListItem(
-        modifier = modifier.clickable { uninstallDialog.show() },
+        modifier = modifier
+            .then(if (canUninstall) Modifier.clickable { uninstallDialog.show() } else Modifier)
+            .alpha(if (canUninstall) 1f else 0.5f),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = { Icon(Icons.Filled.Delete, uninstall) },
         headlineContent = {

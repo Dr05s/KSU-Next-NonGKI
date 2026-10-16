@@ -34,6 +34,7 @@ import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import com.ramcosta.composedestinations.navigation.EmptyDestinationsNavigator
+import com.rifsxd.ksunext.Natives
 import com.rifsxd.ksunext.R
 import com.rifsxd.ksunext.ui.component.ConfirmResult
 import com.rifsxd.ksunext.ui.component.KeyEventBlocker
@@ -43,6 +44,7 @@ import com.rifsxd.ksunext.ui.theme.ORANGE
 import com.rifsxd.ksunext.ui.theme.RED
 import com.rifsxd.ksunext.ui.util.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
@@ -136,7 +138,19 @@ fun FlashScreen(
     var pendingFlashIt by rememberSaveable { mutableStateOf<FlashIt?>(null) }
     var hasFlashed by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(flashIt) {
+    // Jailbreak mode runs on a locked bootloader, where a boot image that fails AVB
+    // can leave the device unable to boot, so require an explicit confirmation first.
+    val needJailbreakWarning = flashIt is FlashIt.FlashBoot && Natives.isLateLoadMode
+    var jailbreakWarningAcknowledged by rememberSaveable { mutableStateOf(!needJailbreakWarning) }
+
+    if (needJailbreakWarning && !jailbreakWarningAcknowledged) {
+        JailbreakFlashWarningDialog(
+            onConfirm = { jailbreakWarningAcknowledged = true },
+            onDismiss = dropUnlessResumed { navigator.popBackStack() }
+        )
+    }
+
+    LaunchedEffect(flashIt, jailbreakWarningAcknowledged) {
         when {
             flashIt is FlashIt.FlashModules && !confirmed -> {
                 val uris = flashIt.uris
@@ -186,6 +200,10 @@ fun FlashScreen(
                 }
             }
             else -> {
+                // Hold the flash until the jailbreak-mode warning has been acknowledged
+                if (needJailbreakWarning && !jailbreakWarningAcknowledged) {
+                    return@LaunchedEffect
+                }
                 confirmed = true
                 pendingFlashIt = flashIt
             }
@@ -547,4 +565,54 @@ private fun TopBar(
 @Composable
 fun InstallPreview() {
     InstallScreen(EmptyDestinationsNavigator)
+}
+
+private const val JAILBREAK_WARNING_COUNTDOWN = 10
+
+/**
+ * Blocks the flash until the user has had time to read why flashing a partition while
+ * jailbroken is risky. The confirm button stays disabled for a short countdown.
+ */
+@Composable
+fun JailbreakFlashWarningDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var countdown by remember { mutableIntStateOf(JAILBREAK_WARNING_COUNTDOWN) }
+
+    LaunchedEffect(Unit) {
+        while (countdown > 0) {
+            delay(1000L)
+            countdown--
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(android.R.string.dialog_alert_title)) },
+        text = {
+            Text(
+                stringResource(R.string.jailbreak_flash_warning),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = countdown == 0
+            ) {
+                Text(
+                    if (countdown > 0)
+                        stringResource(R.string.jailbreak_flash_warning_countdown, countdown)
+                    else
+                        stringResource(R.string.install_next)
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
 }

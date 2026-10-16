@@ -98,6 +98,8 @@
     <string name="export_log_unrooted">Export logs (non-root)</string>
     <string name="safe_mode">Safe mode</string>
     <string name="jailbreak_mode">Jailbreak mode</string>
+    <string name="jailbreak_flash_warning">You are in Jailbreak mode. Flashing a partition on a device with a locked bootloader will break AVB (Android Verified Boot) and may cause the device to fail to boot.\n\nMake sure your bootloader is unlocked before proceeding!</string>
+    <string name="jailbreak_flash_warning_countdown">Continue (%1$d)</string>
     <string name="reboot_to_apply">Reboot to take effect</string>
     <string name="module_magisk_conflict">Modules are unavailable due to a conflict with Magisk!</string>
     <string name="unavailable">Unavailable</string>
