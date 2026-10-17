@@ -81,6 +81,10 @@ KSU_RUNNER_CFLAGS := $(CLANG_FLAGS) -std=gnu11 -Os -Wall \
 	-fno-asynchronous-unwind-tables -fno-unwind-tables \
 	-ffunction-sections -fdata-sections
 
+ifeq ($(shell [ -f $(srctree)/include/linux/sched.h ] && grep -q "struct clone_args" $(srctree)/include/linux/sched.h; echo $$?),0)
+KSU_RUNNER_CFLAGS += -DKSU_HAS_CLONE_ARGS
+endif
+
 quiet_cmd_ksu_runner = RUNNER  $@
       cmd_ksu_runner = $(CC) $(KSU_RUNNER_CFLAGS) -c -o $@.o $< && \
 		$(LD) -static -nostdlib -e _start --gc-sections -s -o $@ $@.o && \
@@ -94,6 +98,7 @@ $(obj)/preinit/runner.elf: $(KSU_KERNEL_DIR)/preinit/runner/runner.c \
 
 targets += preinit/runner.elf
 $(obj)/preinit/blob.o: $(obj)/preinit/runner.elf
+$(info -- KernelSU: $(KSU_UAPI_INC): preinit enabled)
 asflags-y += -DKSU_PREINIT_RUNNER_BIN=\"$(obj)/preinit/runner.elf\"
 else
 $(warning -- KernelSU: $(KSU_UAPI_INC) not found, preinit disabled)
