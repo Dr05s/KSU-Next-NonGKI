@@ -29,7 +29,7 @@
 #include "stdarg.h"
 #include "types.h"
 
-#ifndef KSU_HAS_CLONE_ARGS
+#ifdef KSU_HAS_NO_CLONE_ARGS
 struct clone_args {
 	__aligned_u64 flags;
 	__aligned_u64 pidfd;

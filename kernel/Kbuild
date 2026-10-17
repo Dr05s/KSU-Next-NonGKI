@@ -81,8 +81,8 @@ KSU_RUNNER_CFLAGS := $(CLANG_FLAGS) -std=gnu11 -Os -Wall \
 	-fno-asynchronous-unwind-tables -fno-unwind-tables \
 	-ffunction-sections -fdata-sections
 
-ifeq ($(shell [ -f $(srctree)/include/linux/sched.h ] && grep -q "struct clone_args" $(srctree)/include/linux/sched.h; echo $$?),0)
-KSU_RUNNER_CFLAGS += -DKSU_HAS_CLONE_ARGS
+ifneq ($(shell [ -f $(srctree)/include/uapi/linux/sched.h ] && grep -q "struct clone_args" $(srctree)/include/uapi/linux/sched.h; echo $$?),0)
+KSU_RUNNER_CFLAGS += -DKSU_HAS_NO_CLONE_ARGS
 endif
 
 quiet_cmd_ksu_runner = RUNNER  $@
