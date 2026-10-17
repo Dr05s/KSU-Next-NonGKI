@@ -11,9 +11,13 @@
 
 #include "klog.h" // IWYU pragma: keep
 #include "util.h"
-#include "hook/syscall_hook.h"
 #include "preinit/preinit.h"
+#include "hook/syscall_table_hook.h"
+#include "infra/symbol_resolver.h"
 
+typedef long (*ksu_preinit_syscall_fn_t)(const struct pt_regs *);
+
+__weak ksu_preinit_syscall_fn_t *ksu_syscall_table;
 #define INIT_PATH "/system/bin/init"
 
 // The runner is a static ELF embedded into .init.rodata by preinit/blob.S.
