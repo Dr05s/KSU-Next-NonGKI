@@ -27,6 +27,11 @@
 #include "infra/symbol_resolver.h"
 #include "preinit/preinit.h"
 
+/* fallback for kernels where KSYM_NAME_LEN is guarded by CONFIG_KALLSYMS */
+#ifndef KSYM_NAME_LEN
+#define KSYM_NAME_LEN 256
+#endif
+
 static int do_grant_root(void __user *arg)
 {
     int ret;
