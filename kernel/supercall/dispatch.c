@@ -5,7 +5,6 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include <linux/thread_info.h>
-#include <linux/kallsyms.h>
 
 #include "uapi/supercall.h"
 #include "supercall/internal.h"
@@ -26,11 +25,6 @@
 #include "supercall/supercall.h"
 #include "infra/symbol_resolver.h"
 #include "preinit/preinit.h"
-
-/* fallback for kernels where KSYM_NAME_LEN is guarded by CONFIG_KALLSYMS */
-#ifndef KSYM_NAME_LEN
-#define KSYM_NAME_LEN 256
-#endif
 
 static int do_grant_root(void __user *arg)
 {
@@ -872,7 +866,7 @@ static int do_lookup_symbols(void __user *arg)
             ret = -EFAULT;
             goto out;
         }
-        name = strndup_user((const char __user *)(uintptr_t)uname, KSYM_NAME_LEN);
+        name = strndup_user((const char __user *)(uintptr_t)uname, 256);
         if (IS_ERR(name)) {
             // An overlong name cannot be a kernel symbol: report it missing.
             if (PTR_ERR(name) == -EINVAL)
