@@ -5,6 +5,7 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include <linux/thread_info.h>
+#include <linux/kallsyms.h>
 
 #include "uapi/supercall.h"
 #include "supercall/internal.h"
