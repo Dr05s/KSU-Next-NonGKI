@@ -5,6 +5,7 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include <linux/thread_info.h>
+#include <linux/kallsyms.h>
 
 #include "uapi/supercall.h"
 #include "supercall/internal.h"
@@ -866,7 +867,7 @@ static int do_lookup_symbols(void __user *arg)
             ret = -EFAULT;
             goto out;
         }
-        name = strndup_user((const char __user *)(uintptr_t)uname, 256);
+        name = strndup_user((const char __user *)(uintptr_t)uname, KSYM_NAME_LEN);
         if (IS_ERR(name)) {
             // An overlong name cannot be a kernel symbol: report it missing.
             if (PTR_ERR(name) == -EINVAL)
