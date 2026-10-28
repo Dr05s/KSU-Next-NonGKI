@@ -11,6 +11,9 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include <linux/utsname.h> // utsname() and uts_sem
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs_def.h>
+#endif
 
 #include "uapi/supercall.h"
 #include "supercall/internal.h"
@@ -21,6 +24,10 @@
 #include "compat/kernel_compat.h"
 
 #include "sulog/event.h"
+
+#ifdef CONFIG_KSU_SUSFS
+extern bool ksu_susfs_handle_reboot(unsigned int command, void __user **arg);
+#endif
 
 uint32_t ksuver_override = 0;
 
@@ -123,8 +130,16 @@ static void ksu_install_fd_tw_func(struct callback_head *cb)
 int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
 			  void __user **arg)
 {
+	#ifdef CONFIG_KSU_SUSFS
+	if (magic1 == SUSFS_MAGIC)
+		return ksu_susfs_handle_reboot((unsigned int)magic2, arg) ? 0 : 1;
+#endif
 	if (magic1 != KSU_INSTALL_MAGIC1)
+#ifdef CONFIG_KSU_SUSFS
+		return 1;
+#else
 		return 0;
+#endif
 
 #ifdef CONFIG_KSU_DEBUG
 	pr_info("sys_reboot: intercepted call! magic: 0x%x id: %d\n", magic1,
