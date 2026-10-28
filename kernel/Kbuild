@@ -40,6 +40,10 @@ kernelsu-objs += supercall/dispatch.o
 kernelsu-objs += supercall/perm.o
 kernelsu-objs += supercall/supercall.o
 
+ifeq ($(CONFIG_KSU_SUSFS),y)
+kernelsu-objs += supercall/susfs.o
+endif
+
 kernelsu-objs += feature/adb_root.o
 kernelsu-objs += feature/selinux_hide.o
 
