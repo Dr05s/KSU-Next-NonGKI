@@ -49,6 +49,16 @@ config KSU_MANUAL_HOOK
 	help
 	  Enable manual hook support.
 
+config KSU_SUSFS
+	bool "KernelSU SUSFS support (manual hook)"
+	depends on KSU && KSU_MANUAL_HOOK
+	default n
+	help
+	  Enable the SUSFS command bridge for kernels that already contain
+	  the SUSFS filesystem patches, headers and reboot manual hook.
+	  Requires fs/susfs.c and include/linux/susfs*.h in the target kernel.
+	  This option does not install SUSFS patches into the kernel.
+
 choice
 	prompt "KernelSU dynamic hook mode"
 	depends on KSU && !KSU_MANUAL_HOOK
