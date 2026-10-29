@@ -107,6 +107,19 @@ static int ksu_task_fix_setuid(struct cred *new, const struct cred *old,
 	return ksu_handle_setresuid(old->uid.val, new_uid.val);
 }
 
+
+#ifdef CONFIG_KSU_SUSFS
+/*
+ * The target kernel calls this from devpts_get_priv(). This KernelSU
+ * version does not require a devpts inode mutation; retain the inode
+ * unchanged instead of leaving an unresolved legacy hook.
+ */
+int ksu_handle_devpts(struct inode *inode)
+{
+	return 0;
+}
+#endif
+
 #ifndef DEVPTS_SUPER_MAGIC
 #define DEVPTS_SUPER_MAGIC	0x1cd1
 #endif
