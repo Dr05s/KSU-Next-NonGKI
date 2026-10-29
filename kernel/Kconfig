@@ -59,6 +59,50 @@ config KSU_SUSFS
 	  Requires fs/susfs.c and include/linux/susfs*.h in the target kernel.
 	  This option does not install SUSFS patches into the kernel.
 
+if KSU_SUSFS
+
+config KSU_SUSFS_SUS_PATH
+	bool "Hide selected paths and external directory entries"
+	default y
+
+config KSU_SUSFS_SUS_MOUNT
+	bool "Hide SUSFS mounts"
+	default y
+
+config KSU_SUSFS_SUS_KSTAT
+	bool "Spoof filesystem stat information"
+	default y
+
+config KSU_SUSFS_TRY_UMOUNT
+	bool "Support SUSFS try-umount rules"
+	default y
+
+config KSU_SUSFS_SPOOF_UNAME
+	bool "Spoof uname information"
+	default y
+
+config KSU_SUSFS_ENABLE_LOG
+	bool "Allow SUSFS logging"
+	default y
+
+config KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+	bool "Spoof cmdline or bootconfig"
+	default y
+
+config KSU_SUSFS_OPEN_REDIRECT
+	bool "Redirect selected file opens"
+	default y
+
+config KSU_SUSFS_SUS_MAP
+	bool "Hide selected memory mappings"
+	default y
+
+config KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+	bool "Hide KernelSU and SUSFS symbols"
+	default y
+
+endif # KSU_SUSFS
+
 choice
 	prompt "KernelSU dynamic hook mode"
 	depends on KSU && !KSU_MANUAL_HOOK
