@@ -15,6 +15,13 @@
 
 bool ksu_module_mounted __read_mostly = false;
 bool ksu_boot_completed __read_mostly = false;
+
+#ifdef CONFIG_KSU_SUSFS
+bool susfs_is_boot_completed_triggered(void)
+{
+	return READ_ONCE(ksu_boot_completed);
+}
+#endif
 bool ksu_ksud_present __read_mostly = false;
 
 void ksu_set_ksud_present(bool present)
