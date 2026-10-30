@@ -12,6 +12,7 @@
 #include <linux/version.h>
 #include <linux/utsname.h> // utsname() and uts_sem
 #ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
 #include <linux/susfs_def.h>
 #endif
 
@@ -26,7 +27,91 @@
 #include "sulog/event.h"
 
 #ifdef CONFIG_KSU_SUSFS
-extern bool ksu_susfs_handle_reboot(unsigned int command, void __user **arg);
+/*
+ * SUSFS v2 is implemented by the target kernel in fs/susfs.c.
+ * KernelSU only dispatches the userspace reboot ABI to that implementation.
+ * Keep this bridge here so KernelSU never carries a second SUSFS implementation.
+ */
+static bool ksu_susfs_handle_reboot(unsigned int command, void __user **arg)
+{
+	if (current_uid().val != 0)
+		return true;
+
+	switch (command) {
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	case CMD_SUSFS_ADD_SUS_PATH:
+		susfs_add_sus_path(arg);
+		break;
+	case CMD_SUSFS_ADD_SUS_PATH_LOOP:
+		susfs_add_sus_path_loop(arg);
+		break;
+	case CMD_SUSFS_SET_ANDROID_DATA_ROOT_PATH:
+	case CMD_SUSFS_SET_SDCARD_ROOT_PATH:
+		susfs_set_i_state_on_external_dir(arg);
+		break;
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+	case CMD_SUSFS_HIDE_SUS_MNTS_FOR_ALL_PROCS:
+		susfs_set_hide_sus_mnts_for_all_procs(arg);
+		break;
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+	case CMD_SUSFS_ADD_SUS_KSTAT:
+	case CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY:
+		susfs_add_sus_kstat(arg);
+		break;
+	case CMD_SUSFS_UPDATE_SUS_KSTAT:
+		susfs_update_sus_kstat(arg);
+		break;
+#endif
+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+	case CMD_SUSFS_ADD_TRY_UMOUNT:
+		susfs_add_try_umount(arg);
+		break;
+#endif
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+	case CMD_SUSFS_SET_UNAME:
+		susfs_set_uname(arg);
+		break;
+#endif
+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+	case CMD_SUSFS_ENABLE_LOG:
+		susfs_enable_log(arg);
+		break;
+#endif
+#ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+	case CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG:
+		susfs_set_cmdline_or_bootconfig(arg);
+		break;
+#endif
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+	case CMD_SUSFS_ADD_OPEN_REDIRECT:
+		susfs_add_open_redirect(arg);
+		break;
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
+	case CMD_SUSFS_ADD_SUS_MAP:
+		susfs_add_sus_map(arg);
+		break;
+#endif
+	case CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING:
+		susfs_set_avc_log_spoofing(arg);
+		break;
+	case CMD_SUSFS_SHOW_VERSION:
+		susfs_show_version(arg);
+		break;
+	case CMD_SUSFS_SHOW_VARIANT:
+		susfs_show_variant(arg);
+		break;
+	case CMD_SUSFS_SHOW_ENABLED_FEATURES:
+		susfs_get_enabled_features(arg);
+		break;
+	default:
+		return false;
+	}
+
+	return true;
+}
 #endif
 
 uint32_t ksuver_override = 0;
