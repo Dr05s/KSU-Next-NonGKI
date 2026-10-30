@@ -131,8 +131,16 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
 			  void __user **arg)
 {
 	#ifdef CONFIG_KSU_SUSFS
-	if (magic1 == SUSFS_MAGIC)
-		return ksu_susfs_handle_reboot((unsigned int)magic2, arg) ? 0 : 1;
+	if (magic1 == SUSFS_MAGIC) {
+		/*
+		 * SUSFS tools use reboot(SUSFS_MAGIC, SUSFS_MAGIC,
+		 * CMD_SUSFS_*, payload). Also accept the older layout
+		 * where the command is passed as magic2.
+		 */
+		unsigned int susfs_cmd = magic2 == SUSFS_MAGIC ?
+					 cmd : (unsigned int)magic2;
+		return ksu_susfs_handle_reboot(susfs_cmd, arg) ? 0 : 1;
+	}
 #endif
 	if (magic1 != KSU_INSTALL_MAGIC1)
 #ifdef CONFIG_KSU_SUSFS
