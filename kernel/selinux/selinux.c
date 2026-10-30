@@ -25,17 +25,6 @@ static u32 cached_adbd_sid __read_mostly = 0;
 static u32 cached_init_sid __read_mostly = 0;
 u32 ksu_file_sid __read_mostly = 0;
 
-#ifdef CONFIG_KSU_SUSFS
-/* Referenced by the SUSFS AVC log spoofing patch in security/selinux/avc.c. */
-u32 susfs_ksu_sid __read_mostly;
-u32 susfs_priv_app_sid __read_mostly;
-
-bool susfs_is_current_ksu_domain(void)
-{
-	return is_ksu_domain();
-}
-#endif
-
 static int transive_to_domain(const char *domain, struct cred *cred, bool clear_exec_sid)
 {
     struct task_security_struct *tsec;
@@ -174,17 +163,6 @@ static void __security_release_secctx(struct lsm_context *cp)
 void cache_sid(void)
 {
     int err;
-#ifdef CONFIG_KSU_SUSFS
-    /* Refresh both SIDs when the active SELinux policy is loaded. */
-    susfs_ksu_sid = 0;
-    susfs_priv_app_sid = 0;
-    if (security_secctx_to_secid(KERNEL_SU_CONTEXT,
-                                  strlen(KERNEL_SU_CONTEXT), &susfs_ksu_sid))
-        pr_warn("SUSFS: failed to resolve ksu SID\n");
-    if (security_secctx_to_secid("u:r:priv_app:s0",
-                                  strlen("u:r:priv_app:s0"), &susfs_priv_app_sid))
-        pr_warn("SUSFS: failed to resolve priv_app SID\n");
-#endif
 
     err = security_secctx_to_secid(KERNEL_SU_CONTEXT, strlen(KERNEL_SU_CONTEXT),
                                    &cached_su_sid);
