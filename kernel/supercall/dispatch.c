@@ -922,8 +922,8 @@ int ksu_handle_susfs_cmd(unsigned int cmd, void __user **arg)
     }
 #endif //#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-    case CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS: {
-        susfs_set_hide_sus_mnts_for_non_su_procs(arg);
+    case CMD_SUSFS_HIDE_SUS_MNTS_FOR_ALL_PROCS: {
+        susfs_set_hide_sus_mnts_for_all_procs(arg);
         return 0;
     }
 #endif //#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
