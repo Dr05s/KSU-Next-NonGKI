@@ -903,6 +903,91 @@ out:
     return ret;
 }
 
+#ifdef CONFIG_KSU_SUSFS
+int ksu_handle_susfs_cmd(unsigned int cmd, void __user **arg)
+{
+    switch (cmd) {
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+    case CMD_SUSFS_ADD_SUS_PATH: {
+        susfs_add_sus_path(arg);
+        return 0;
+    }
+    case CMD_SUSFS_ADD_SUS_PATH_LOOP: {
+        susfs_add_sus_path_loop(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+    case CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS: {
+        susfs_set_hide_sus_mnts_for_non_su_procs(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+    case CMD_SUSFS_ADD_SUS_KSTAT: {
+        susfs_add_sus_kstat(arg);
+        return 0;
+    }
+    case CMD_SUSFS_UPDATE_SUS_KSTAT: {
+        susfs_update_sus_kstat(arg);
+        return 0;
+    }
+    case CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY: {
+        susfs_add_sus_kstat(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+    case CMD_SUSFS_SET_UNAME: {
+        susfs_set_uname(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+    case CMD_SUSFS_ENABLE_LOG: {
+        susfs_enable_log(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+#ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+    case CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG: {
+        susfs_set_cmdline_or_bootconfig(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+    case CMD_SUSFS_ADD_OPEN_REDIRECT: {
+        susfs_add_open_redirect(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
+    case CMD_SUSFS_ADD_SUS_MAP: {
+        susfs_add_sus_map(arg);
+        return 0;
+    }
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MAP
+    case CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING: {
+        susfs_set_avc_log_spoofing(arg);
+        return 0;
+    }
+    case CMD_SUSFS_SHOW_ENABLED_FEATURES: {
+        susfs_get_enabled_features(arg);
+        return 0;
+    }
+    case CMD_SUSFS_SHOW_VARIANT: {
+        susfs_show_variant(arg);
+        return 0;
+    }
+    case CMD_SUSFS_SHOW_VERSION: {
+        susfs_show_version(arg);
+        return 0;
+    }
+    }
+    return 0;
+}
+#endif
+
 // IOCTL handlers mapping table
 // clang-format off
 static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {

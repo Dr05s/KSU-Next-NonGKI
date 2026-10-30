@@ -40,6 +40,12 @@ extern ssize_t ksu_kernel_write_compat(struct file *p, const void *buf,
 extern struct key *init_session_keyring;
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)
+#define ksu_get_uid_t(x) *(unsigned int *)&(x)
+#else
+#define ksu_get_uid_t(x) (x.val)
+#endif
+
 extern long ksu_copy_from_user_nofault(void *dst, const void __user *src, size_t size);
 /*
  * ksu_copy_from_user_retry

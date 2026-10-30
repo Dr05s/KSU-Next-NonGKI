@@ -11,6 +11,11 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include <linux/utsname.h> // utsname() and uts_sem
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/namei.h>
+#include <linux/susfs.h>
+#endif // #ifdef CONFIG_KSU_SUSFS
+
 
 #include "uapi/supercall.h"
 #include "supercall/internal.h"
@@ -120,174 +125,49 @@ static void ksu_install_fd_tw_func(struct callback_head *cb)
     kfree(tw);
 }
 
-int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
-			  void __user **arg)
+#ifdef CONFIG_KSU_SUSFS
+extern int ksu_handle_susfs_cmd(unsigned int cmd, void __user **arg);
+#endif
+
+int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg)
 {
-	if (magic1 != KSU_INSTALL_MAGIC1)
-		return 0;
+    if (magic1 != KSU_INSTALL_MAGIC1)
+        return -EINVAL;
 
 #ifdef CONFIG_KSU_DEBUG
-	pr_info("sys_reboot: intercepted call! magic: 0x%x id: %d\n", magic1,
-		magic2);
+    pr_info("sys_reboot: intercepted call! magic: 0x%x id: %d\n", magic1, magic2);
 #endif
 
-	// Check if this is a request to install KSU fd
-	if (magic2 == KSU_INSTALL_MAGIC2) {
-		struct ksu_install_fd_tw *tw;
+    // Check if this is a request to install KSU fd
+    if (magic2 == KSU_INSTALL_MAGIC2) {
+        int fd = ksu_install_fd();
+        pr_info("[%d] install ksu fd: %d\n", current->pid, fd);
 
-		/*
-		 * Every other command below guards on privilege; the fd install
-		 * did not, so any unprivileged app could hand itself a working
-		 * anon_ksu descriptor (and fingerprint the exact build through
-		 * the always_allow GET_INFO / CHECK_SAFEMODE ioctls).
-		 * Restrict to root, manager, and apps allowed for su.
-		 */
-		if (current_uid().val != 0 && !allowed_for_su())
-			return 0;
+        if (copy_to_user((int __user *)*arg, &fd, sizeof(fd))) {
+            pr_err("install ksu fd reply err\n");
+            ksu_close_fd(fd);
+        }
+        return 0;
+    }
 
-		tw = kzalloc(sizeof(*tw), GFP_ATOMIC);
-		if (!tw)
-			return 0;
+    // extensions
 
-		tw->outp = (int __user *)*arg;
-		tw->cb.func = ksu_install_fd_tw_func;
-
-		if (task_work_add(current, &tw->cb, TWA_RESUME)) {
-			kfree(tw);
-			pr_warn("install fd add task_work failed\n");
-		}
-		return 0;
-	}
-
-	// extensions 
-	u64 reply = (u64)*arg;
-
-	if (magic2 == CHANGE_MANAGER_UID) {
-		// only root is allowed for this command
-		if (current_uid().val != 0)
-			return 0;
-
-		pr_info("sys_reboot: ksu_set_manager_appid to: %d\n", cmd);
-		ksu_set_manager_appid(cmd);
-
-		if (cmd == ksu_get_manager_appid()) {
-			if (copy_to_user((void __user *)*arg, &reply, sizeof(reply)))
-				pr_info("sys_reboot: reply fail\n");
-		}
-
-		return 0;
-	}
-	
-	if (magic2 == GET_SULOG_DUMP_V2) {
-		// only root is allowed for this command
-		if (current_uid().val != 0)
-			return 0;
-
-		int ret = ksu_sulog_handle_compat_dump((void __user *)*arg);
-		if (ret)
-			return 0;
-
-		if (copy_to_user((void __user *)*arg, &reply, sizeof(reply) ))
-			return 0;
-	}
-
-	if (magic2 == CHANGE_KSUVER) {
-		// only root is allowed for this command
-		if (current_uid().val != 0)
-			return 0;
-
-		pr_info("sys_reboot: ksu_change_ksuver to: %d\n", cmd);
-		ksuver_override = cmd;
-
-		if (copy_to_user((void __user *)*arg, &reply, sizeof(reply) ))
-			return 0;
-	}
-
-	// WARNING!!! triple ptr zone! ***
-	// https://wiki.c2.com/?ThreeStarProgrammer
-	if (magic2 == CHANGE_SPOOF_UNAME) {
-		// only root is allowed for this command 
-		if (current_uid().val != 0)
-			return 0;
-
-		char release_buf[65];
-		char version_buf[65];
-		static char original_release_buf[65] = {0};
-		static char original_version_buf[65] = {0};
-
-		// basically void * void __user * void __user *arg
-		void ***ppptr = (uintptr_t)arg;
-
-		// user pointer storage
-		// init this as zero so this works on 32-on-64 compat (LE)
-		uint64_t u_pptr = 0;
-		uint64_t u_ptr = 0;
-
-		pr_info("sys_reboot: ppptr: 0x%lx \n", ppptr);
-
-		// arg here is ***, dereference to pull out **
-		if (copy_from_user(&u_pptr, (void __user *)*ppptr, sizeof(u_pptr)))
-			return 0;
-
-		pr_info("sys_reboot: u_pptr: 0x%lx \n", u_pptr);
-
-		// now we got the __user **
-		// we cannot dereference this as this is __user
-		// we just do another copy_from_user to get it
-		if (copy_from_user(&u_ptr, (void __user *)u_pptr, sizeof(u_ptr)))
-			return 0;
-
-		pr_info("sys_reboot: u_ptr: 0x%lx \n", u_ptr);
-
-		// for release
-		if (strncpy_from_user(release_buf, (char __user *)u_ptr, sizeof(release_buf)) < 0)
-			return 0;
-		release_buf[sizeof(release_buf) - 1] = '\0'; 
-
-		// for version
-		if (strncpy_from_user(version_buf, (char __user *)(u_ptr + strlen(release_buf) + 1), sizeof(version_buf)) < 0)
-			return 0;
-		version_buf[sizeof(version_buf) - 1] = '\0'; 
-
-		if (original_release_buf[0] == '\0') {
-			struct new_utsname *u_curr = utsname();
-			// we save current version as the original before modifying
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
-			strscpy(original_release_buf, u_curr->release, sizeof(original_release_buf));
-			strscpy(original_version_buf, u_curr->version, sizeof(original_version_buf));
-#else
-			strlcpy(original_release_buf, u_curr->release, sizeof(original_release_buf));
-			strlcpy(original_version_buf, u_curr->version, sizeof(original_version_buf));
+#if !defined(CONFIG_KSU_SUSFS)
+    return 0;
 #endif
-			pr_info("sys_reboot: original uname saved: %s %s\n", original_release_buf, original_version_buf);
-		}
 
-		// so user can reset
-		if (!strcmp(release_buf, "default") || !strcmp(version_buf, "default") ) {
-			memcpy(release_buf, original_release_buf, sizeof(release_buf));
-			memcpy(version_buf, original_version_buf, sizeof(version_buf));
-		}
+    // other sys_reboot extensions are fully require uid 0,
+    // so let's check it before
+    if (ksu_get_uid_t(current_uid()) != 0)
+        return 0;
 
-		pr_info("sys_reboot: spoofing kernel to: %s - %s\n", release_buf, version_buf);
-
-		struct new_utsname *u = utsname();
-
-		down_write(&uts_sem);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
-		strscpy(u->release, release_buf, sizeof(u->release));
-		strscpy(u->version, version_buf, sizeof(u->version));
-#else
-		strlcpy(u->release, release_buf, sizeof(u->release));
-		strlcpy(u->version, version_buf, sizeof(u->version));
+#ifdef CONFIG_KSU_SUSFS
+    // If magic2 is susfs and current process is root
+    if (magic2 == SUSFS_MAGIC) {
+        return ksu_handle_susfs_cmd(cmd, arg);
+    }
 #endif
-		up_write(&uts_sem);
-
-		// we write our confirmation on **
-		if (copy_to_user((void __user *)*arg, &reply, sizeof(reply)))
-			return 0;
-	}
-
-	return 0;
+    return 0;
 }
 
 #ifdef KSU_KPROBES_HOOK
