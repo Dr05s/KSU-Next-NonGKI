@@ -6,6 +6,10 @@
 #include <linux/version.h>
 #include <linux/thread_info.h>
 #include <linux/kallsyms.h>
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#include <linux/susfs_def.h>
+#endif
 
 #include "uapi/supercall.h"
 #include "supercall/internal.h"
