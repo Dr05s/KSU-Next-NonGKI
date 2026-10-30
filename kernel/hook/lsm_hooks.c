@@ -107,6 +107,18 @@ static int ksu_task_fix_setuid(struct cred *new, const struct cred *old,
 	return ksu_handle_setresuid(old->uid.val, new_uid.val);
 }
 
+/*
+ * Legacy non-GKI devpts manual-hook ABI. The current KernelSU hook no
+ * longer rewrites devpts inode labels; keep the entry point for kernels
+ * which still invoke it from fs/devpts/inode.c.
+ */
+int ksu_handle_devpts(struct inode *inode)
+{
+    if (!inode || !inode->i_sb)
+        return -EINVAL;
+    return 0;
+}
+
 #ifndef DEVPTS_SUPER_MAGIC
 #define DEVPTS_SUPER_MAGIC	0x1cd1
 #endif
